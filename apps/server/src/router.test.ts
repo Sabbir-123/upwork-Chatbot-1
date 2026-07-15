@@ -69,14 +69,33 @@ const CASES: Array<[string, string]> = [
   ["what can you do", "greeting"],
   ["what can you help with", "greeting"],
   ["help me return this", "returns"],
-  // fallback
+  // smalltalk — social / meta chit-chat gets a warm reply, never the confusion fallback.
+  ["thanks", "smalltalk"],
+  ["thank you so much", "smalltalk"],
+  ["thanks for the help", "smalltalk"],
+  ["cool", "smalltalk"],
+  ["awesome, thanks", "smalltalk"],
+  ["ok", "smalltalk"],
+  ["how are you", "smalltalk"],
+  ["what's your name", "smalltalk"],
+  ["are you a bot", "smalltalk"],
+  ["you're awesome", "smalltalk"],
+  ["bye", "smalltalk"],
+  ["goodbye", "smalltalk"],
+  // out_of_scope — coherent questions we have no data for: honest deflection, not "gibberish".
+  ["do you sell cars", "out_of_scope"],
+  ["what's the meaning of life", "out_of_scope"],
+  ["tell me a joke", "out_of_scope"],
+  ["how long have you been open", "out_of_scope"],
+  ["do you ship to Canada", "out_of_scope"],
+  ["are the jackets waterproof", "out_of_scope"],
+  ["what are your store hours", "out_of_scope"],
+  ["can I get a discount", "out_of_scope"],
+  // fallback — reserved for genuinely unintelligible input.
   ["asdkjaslkdj", "fallback"],
-  ["what's the meaning of life", "fallback"],
-  ["do you sell cars", "fallback"],
   ["blah blah nonsense", "fallback"],
   ["12345", "fallback"],
-  ["tell me a joke", "fallback"],
-  ["how long have you been open", "fallback"],
+  ["kdjf lkjdf", "fallback"],
 ];
 
 describe("classifyIntent (mock mode)", () => {

@@ -12,6 +12,7 @@ import { openSse } from "./sse.js";
 import { log } from "./logger.js";
 import { greetingReply } from "./handlers/greeting.js";
 import { advance } from "./conversation.js";
+import { generateReply } from "./generate.js";
 
 const store = getStore();
 const bus = getEventBus();
@@ -73,6 +74,23 @@ app.post("/api/chat", async (c) => {
     const result = advance(session, text, u, { agentActive: metaNow.status === "agent_handling" });
     reply = result.reply;
     awaitingHuman = result.awaitingHuman;
+
+    // AI mode: the state machine decided *what* to say (and the grounded facts); let the
+    // LLM render *how*, using recent history for context. Any failure returns the template.
+    //
+    // Exception: in live_agent mode the reply *is* the simulated human handoff/holding
+    // message ("a North Star agent will follow up"). The LLM's persona is the bot itself,
+    // so rendering here makes it answer as the bot — overriding the handoff and stranding
+    // the customer with an AI reply. Keep those deterministic so the simulated agent shows
+    // through. (The back-to-bot greeting sets mode to "main" in advance(), so it still
+    // renders naturally.)
+    if (useLlm && reply !== null && result.grounding && session.mode !== "live_agent") {
+      reply = await generateReply(sessionId, {
+        history: body.messages ?? [],
+        grounding: result.grounding,
+        fallback: reply,
+      });
+    }
 
     log(sessionId, "conversation.turn", {
       text,

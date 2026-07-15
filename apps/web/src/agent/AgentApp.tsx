@@ -14,7 +14,12 @@ export default function AgentApp() {
   return (
     <div className="agent-app">
       <aside className="agent-inbox">
-        <div className="agent-inbox__header">Conversations</div>
+        <div className="agent-inbox__header">
+          <span>Conversations</span>
+          <a className="header-link" href="/docs/mock-flow.html" target="_blank" rel="noreferrer">
+            How this works
+          </a>
+        </div>
         <ul className="agent-inbox__list">
           {conversations.map((conv) => (
             <li key={conv.id}>

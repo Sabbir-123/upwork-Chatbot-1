@@ -410,6 +410,44 @@ textarea {
   word-break: break-word;
 }
 
+/* Rendered-markdown blocks manage their own spacing, so opt out of the bubble's
+   pre-wrap (which would otherwise double up the gaps between block elements). */
+.bubble .md-p,
+.bubble .md-list {
+  white-space: normal;
+  margin: 0;
+}
+
+.bubble .md-p + .md-p,
+.bubble .md-p + .md-list,
+.bubble .md-list + .md-p,
+.bubble .md-list + .md-list {
+  margin-top: 0.6em;
+}
+
+.bubble .md-list {
+  padding-left: 1.25em;
+}
+
+.bubble .md-list li {
+  margin: 0.15em 0;
+}
+
+.bubble code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.88em;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+}
+
+.bubble a {
+  color: var(--grad-b);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .bubble--user {
   background: linear-gradient(155deg, #2a3363, #1c2244);
   border: 1px solid var(--line-strong);
@@ -744,6 +782,10 @@ textarea {
 }
 
 .agent-inbox__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   font-family: var(--font-display);
   font-weight: 600;
   padding: 18px 16px;

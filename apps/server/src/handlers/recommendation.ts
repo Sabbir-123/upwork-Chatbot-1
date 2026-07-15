@@ -21,7 +21,29 @@ export function askTemperatureReply(): string {
   return "Got it! Will you mostly be out in warm weather or cold?";
 }
 
+/** Grounding facts for the LLM path: the category, reason, and concrete SKUs to cite. */
+export function recommendationFacts(activity: Activity, temperature: Temperature): string {
+  const rec = pickGearRecommendation(activity, temperature);
+  const products = rec.products
+    .slice(0, 2)
+    .map((p) => `${p.name} ($${p.price}) — ${p.blurb}`)
+    .join("; ");
+  const catalogLine = products ? ` Suggested products: ${products}.` : "";
+  return `For ${activity} in ${temperature} weather, recommend: ${rec.category}. Reason: ${rec.justification}${catalogLine}`;
+}
+
 export function recommendationReply(activity: Activity, temperature: Temperature): string {
   const rec = pickGearRecommendation(activity, temperature);
-  return `I'd recommend checking out our ${rec.category}. ${rec.justification}\n\nAnything else I can help with?`;
+  const top = rec.products.slice(0, 2);
+
+  let reply = `I'd recommend checking out our ${rec.category}. ${rec.justification}`;
+
+  if (top.length > 0) {
+    const picks = top
+      .map((p) => `• **${p.name}** ($${p.price}) — ${p.blurb}`)
+      .join("\n");
+    reply += `\n\nA couple of picks for you:\n${picks}`;
+  }
+
+  return `${reply}\n\nAnything else I can help with?`;
 }

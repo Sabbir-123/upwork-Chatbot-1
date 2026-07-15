@@ -133,14 +133,34 @@ describe("human handoff & fallback", () => {
     expect(res.awaitingHuman).toBe(true);
   });
 
-  it("escalates to a live agent after two consecutive fallbacks", async () => {
+  it("escalates to a live agent after repeated unintelligible input", async () => {
     const s = freshSession();
     const first = await turn(s, "asdkjaslkdj");
     expect(first.reply).toContain("didn't quite get that");
     expect(s.mode).toBe("main");
 
-    const second = await turn(s, "blah blah nonsense");
+    await turn(s, "blah blah nonsense");
+    expect(s.mode).toBe("main");
+
+    const third = await turn(s, "kdjf lkjdf");
     expect(s.mode).toBe("live_agent");
-    expect(second.reply).toContain("live agent");
+    expect(third.reply).toContain("live agent");
+  });
+
+  it("answers social chit-chat warmly without counting it as a failure", async () => {
+    const s = freshSession();
+    const res = await turn(s, "thanks so much!");
+    expect(s.mode).toBe("main");
+    expect(s.consecutiveFallbacks).toBe(0);
+    // A thanks between confused messages must not nudge the user toward a handoff.
+    expect(res.awaitingHuman).toBe(false);
+  });
+
+  it("deflects a real but unanswerable question and offers a human", async () => {
+    const s = freshSession();
+    const res = await turn(s, "do you ship to Canada?");
+    expect(s.mode).toBe("main");
+    expect(s.consecutiveFallbacks).toBe(0);
+    expect(res.reply).toContain("live agent");
   });
 });

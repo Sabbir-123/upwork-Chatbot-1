@@ -48,9 +48,6 @@ export function Header({ onNewChat, disabled, mode, onModeChange, llmAvailable }
             Rule-based
           </button>
         </div>
-        <a className="header-link" href="/docs/mock-flow.html" target="_blank" rel="noreferrer">
-          How this works
-        </a>
         <button
           type="button"
           className="new-chat-btn"
