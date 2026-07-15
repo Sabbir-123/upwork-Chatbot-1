@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en" data-mode="mock">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Request Flow · North Star Support Bot</title>
+<meta name="description" content="How a chat message travels through the North Star Support Bot in mock mode and real (LLM) mode — toggle between the two." />
+<meta name="theme-color" content="#0b0f1a" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-0: #080b14;
+    --bg-1: #0d1224;
+    --bg-2: #11172c;
+    --ink: #eef0fb;
+    --ink-soft: #a7add0;
+    --ink-faint: #6b7299;
+    --line: rgba(167, 173, 208, 0.14);
+    --line-strong: rgba(167, 173, 208, 0.26);
+    --surface: rgba(255, 255, 255, 0.04);
+    --surface-raised: rgba(255, 255, 255, 0.07);
+
+    --grad-a: #6f7bf7;
+    --grad-b: #35c9d8;
+    --grad-c: #f6b94e;
+
+    --accent: #7c86ff;
+    --accent-ink: #dfe1ff;
+    --accent-soft: rgba(124, 134, 255, 0.14);
+
+    --amber: #f6b94e;
+    --amber-soft: rgba(246, 185, 78, 0.14);
+
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+
+    --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, #171e3d 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+  }
+  .mono {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  a { color: var(--accent-ink); }
+
+  .starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 22%, #ffffff 100%, transparent 0),
+      radial-gradient(1px 1px at 28% 68%, #ffffff 100%, transparent 0),
+      radial-gradient(1.5px 1.5px at 45% 12%, #ffffff 100%, transparent 0),
+      radial-gradient(1px 1px at 62% 45%, #ffffff 100%, transparent 0),
+      radial-gradient(1.5px 1.5px at 78% 78%, #ffffff 100%, transparent 0),
+      radial-gradient(1px 1px at 85% 25%, #ffffff 100%, transparent 0),
+      radial-gradient(1.5px 1.5px at 95% 60%, #ffffff 100%, transparent 0),
+      radial-gradient(1px 1px at 8% 85%, #ffffff 100%, transparent 0),
+      radial-gradient(1px 1px at 55% 90%, #ffffff 100%, transparent 0),
+      radial-gradient(1.5px 1.5px at 35% 40%, #ffffff 100%, transparent 0);
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 24px 96px;
+  }
+
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .back-link:hover { color: var(--accent-ink); border-color: var(--line-strong); }
+
+  .mini-orb {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--grad-a), var(--grad-b), var(--grad-c), var(--grad-a));
+    box-shadow: 0 0 10px rgba(111, 123, 247, 0.35);
+  }
+  .mini-orb::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    background: var(--bg-1);
+  }
+  .mini-orb::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff 0%, var(--grad-b) 45%, var(--grad-a) 100%);
+    z-index: 1;
+  }
+
+  /* ---- mode toggle ---- */
+  .mode-toggle {
+    display: inline-flex;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+    background: var(--surface);
+  }
+  .mode-toggle button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .mode-toggle button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  html[data-mode="mock"] .mode-toggle button[data-set="mock"] {
+    background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+    color: #0a0d1a;
+    font-weight: 700;
+  }
+  html[data-mode="real"] .mode-toggle button[data-set="real"] {
+    background: var(--amber);
+    color: #241505;
+    font-weight: 700;
+  }
+
+  header.masthead {
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border: 1px solid var(--line-strong);
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  html[data-mode="real"] .eyebrow {
+    color: #ffdca6;
+    background: var(--amber-soft);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  h1 .path {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-weight: 600;
+    background: linear-gradient(100deg, var(--grad-a), var(--grad-b));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  html[data-mode="real"] h1 .path {
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    color: var(--amber);
+  }
+  .dek {
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 15.5px;
+    margin: 0;
+  }
+
+  /* show/hide by mode: block-level pairs */
+  .mock-only, .real-only { display: none; }
+  html[data-mode="mock"] .mock-only.b { display: block; }
+  html[data-mode="mock"] .mock-only.i { display: inline; }
+  html[data-mode="real"] .real-only.b { display: block; }
+  html[data-mode="real"] .real-only.i { display: inline; }
+
+  /* ---- pipeline ---- */
+  .pipeline {
+    position: relative;
+    padding-left: 28px;
+    margin-top: 44px;
+  }
+  .pipeline::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--line-strong) 0 6px,
+      transparent 6px 11px
+    );
+  }
+  .step {
+    position: relative;
+    margin-bottom: 22px;
+    animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .step::before {
+    content: "";
+    position: absolute;
+    left: -28px;
+    top: 14px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--bg-1);
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 10px rgba(124, 134, 255, 0.35);
+  }
+  .step.rust::before {
+    border-color: var(--amber);
+    box-shadow: 0 0 10px rgba(246, 185, 78, 0.35);
+  }
+
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .card:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-raised);
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .card-tag {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .card-body {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .card-body code {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+
+  /* branch block: mode router */
+  .branches {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  @media (max-width: 520px) {
+    .branches { grid-template-columns: 1fr; }
+  }
+  .branch {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 9px 11px;
+    background: var(--bg-2);
+    font-size: 12.5px;
+  }
+  .branch.is-main { border-left-color: var(--amber); }
+  .branch b {
+    display: block;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px;
+    margin-bottom: 3px;
+    color: var(--ink);
+  }
+  .branch span { color: var(--ink-soft); }
+
+  /* rule list for the mock matcher */
+  .rules {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    counter-reset: rule;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rules li {
+    counter-increment: rule;
+    display: grid;
+    grid-template-columns: 20px 108px 1fr;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+  .rules li::before {
+    content: counter(rule);
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    color: var(--ink-faint);
+    text-align: right;
+  }
+  .rules li b {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border: 1px solid var(--line-strong);
+    padding: 1px 6px;
+    border-radius: 999px;
+    width: fit-content;
+  }
+  .rules li span { color: var(--ink-soft); }
+  .rules li.fall b {
+    color: #ffdca6;
+    background: var(--amber-soft);
+  }
+
+  /* key/value spec list for the real classifier */
+  .spec {
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .spec li {
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: 8px;
+    font-size: 12.5px;
+    align-items: baseline;
+  }
+  .spec li b {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .spec li span {
+    color: var(--ink-soft);
+  }
+  .spec li code {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .network-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: #241505;
+    background: var(--amber);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 10px;
+    font-weight: 600;
+  }
+  .network-tag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #241505;
+  }
+
+  /* intent → handler grid */
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  @media (max-width: 520px) {
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  .cell {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    background: var(--bg-2);
+    transition: border-color 0.2s ease;
+  }
+  .cell:hover { border-color: var(--line-strong); }
+  .cell .k {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    display: block;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .cell .v { color: var(--ink-soft); }
+
+  /* footer: session + swap note */
+  .aside {
+    margin-top: 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 620px) {
+    .aside { grid-template-columns: 1fr; }
+  }
+  .aside .card { height: 100%; }
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace; color: var(--ink-faint); }
+  .kv .v { color: var(--ink); text-align: right; }
+
+  .swap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-top: 12px;
+  }
+  .swap .pill {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-soft);
+    transition: all 0.2s ease;
+  }
+  html[data-mode="mock"] .swap .pill.pill-mock {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  html[data-mode="real"] .swap .pill.pill-real {
+    background: var(--amber-soft);
+    border-color: var(--amber);
+    color: #ffdca6;
+    font-weight: 600;
+  }
+  .swap .arrow { color: var(--ink-faint); }
+
+  footer.note {
+    margin-top: 36px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+  footer.note code {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="starfield" aria-hidden="true"></div>
+<div class="page">
+  <div class="top-row">
+    <a class="back-link" href="/">
+      <span class="mini-orb" aria-hidden="true"></span>
+      &larr; Back to chat
+    </a>
+    <div class="mode-toggle" role="group" aria-label="View mode">
+      <button type="button" data-set="mock" aria-pressed="true">MOCK_LLM=true</button>
+      <button type="button" data-set="real" aria-pressed="false">MOCK_LLM=false</button>
+    </div>
+  </div>
+
+  <header class="masthead">
+    <span class="eyebrow">
+      <span class="mock-only i">north star support bot &middot; mock mode</span><span class="real-only i">north star support bot &middot; real mode</span>
+    </span>
+    <h1>
+      <span class="mock-only i">One message, one deterministic path — <span class="path">MOCK_LLM=true</span></span><span class="real-only i">One message, one model call in the middle — <span class="path">MOCK_LLM=false</span></span>
+    </h1>
+    <p class="dek mock-only b">
+      No model is called in this mode. Intent comes from an ordered regex matcher, every fact comes from a
+      hardcoded lookup, and the whole round trip stays inside one Node process. This traces exactly what
+      runs, in order, for a single <code class="mono">POST /api/chat</code>.
+    </p>
+    <p class="dek real-only b">
+      Everything is identical to mock mode except one step: intent now comes from a real LLM call to
+      OpenRouter instead of a regex list. Every fact still comes from the same hardcoded lookups — the
+      model only ever picks a label, it never states an order status, policy, or price itself.
+    </p>
+  </header>
+
+  <div class="pipeline">
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Browser types a message</span>
+          <span class="card-tag mono">apps/web/src/App.tsx</span>
+        </div>
+        <div class="card-body">
+          Reads a persisted <code>sessionId</code> from <code>localStorage</code>, then
+          <code>fetch("/api/chat")</code> with the full message list and that id.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Vite dev proxy</span>
+          <span class="card-tag mono">vite.config.ts</span>
+        </div>
+        <div class="card-body">
+          Forwards <code>/api/*</code> from <code class="mono">:5173</code> to the Hono server on
+          <code class="mono">:8787</code> — the browser never needs to know the backend's port.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Session lookup</span>
+          <span class="card-tag mono">getSession(sessionId)</span>
+        </div>
+        <div class="card-body">
+          In-memory <code>Map</code> keyed by session id. Holds three fields: <code>mode</code>,
+          <code>recommendActivity</code>, <code>consecutiveFallbacks</code>. New id → fresh session in
+          <code>mode: "main"</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Branch on session.mode</span>
+          <span class="card-tag mono">apps/server/src/index.ts</span>
+        </div>
+        <div class="card-body">
+          Three modes short-circuit straight to a handler, skipping the classifier entirely. Only
+          <code>main</code> falls through to intent classification — in either mock or real mode.
+        </div>
+        <div class="branches">
+          <div class="branch"><b>live_agent</b><span>"menu" → back to main · else → canned agent reply</span></div>
+          <div class="branch"><b>awaiting_order_number</b><span>extract a number → <code class="mono">lookupOrder()</code></span></div>
+          <div class="branch"><b>recommend_flow</b><span>extract activity, then temperature → recommend</span></div>
+          <div class="branch is-main"><b>main</b><span>→ classify intent (below)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step mock-only b">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">classifyIntent() — mock matcher</span>
+          <span class="card-tag mono">router.ts &middot; MOCK_RULES</span>
+        </div>
+        <div class="card-body">
+          Zero network calls. Tests the message against ordered regexes, top to bottom; first match wins.
+        </div>
+        <ul class="rules">
+          <li><b>human_handoff</b><span>"agent", "representative", "talk to a person", "someone real" …</span></li>
+          <li><b>greeting</b><span>message <em>starts with</em> "hi", "hey", "what's up" …</span></li>
+          <li><b>order_tracking</b><span>"order", "track", "package", "shipment", or a bare <code class="mono">#123</code></span></li>
+          <li><b>returns</b><span>"return", "refund", "exchange…", "money back", "send … back"</span></li>
+          <li><b>shipping</b><span>"shipping", "deliver…", "arriv…"</span></li>
+          <li><b>recommendation</b><span>"recommend", "suggest", "looking for a…", "need … gear"</span></li>
+          <li class="fall"><b>fallback</b><span>nothing above matched</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step rust real-only b">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">classifyIntent() — real LLM classifier</span>
+          <span class="card-tag mono">router.ts &middot; llmClassify()</span>
+        </div>
+        <div class="card-body">
+          One call to <code>generateObject</code> (Vercel AI SDK) against OpenRouter — no keyword rules,
+          no ordering, the model returns a typed intent directly.
+        </div>
+        <ul class="spec">
+          <li><b>provider</b><span><code>createOpenRouter({ apiKey: OPENROUTER_API_KEY })</code></span></li>
+          <li><b>model</b><span><code>OPENROUTER_MODEL</code> ?? <code>"anthropic/claude-sonnet-5"</code></span></li>
+          <li><b>schema</b><span><code>z.object({ intent: z.enum(INTENTS) })</code> — same 7 intents as mock mode</span></li>
+          <li><b>system</b><span>brand persona + classification rules + one example phrase per intent</span></li>
+          <li><b>prompt</b><span>the raw user message, verbatim</span></li>
+        </ul>
+        <span class="network-tag">leaves the process · network round trip</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Intent → handler + grounded data</span>
+          <span class="card-tag mono">handlers/*.ts &middot; tools/lookupOrder.ts</span>
+        </div>
+        <div class="card-body">The model never invents a fact — every reply below is templated over a constant or a lookup.</div>
+        <div class="grid2">
+          <div class="cell"><span class="k">order_tracking</span><span class="v">#111/#222/#333 exact status, else "invalid"</span></div>
+          <div class="cell"><span class="k">returns</span><span class="v">30-day policy + returns link</span></div>
+          <div class="cell"><span class="k">shipping</span><span class="v">Standard 3–5d · Expedited 1–2d</span></div>
+          <div class="cell"><span class="k">recommendation</span><span class="v">activity × temperature → gear category</span></div>
+          <div class="cell"><span class="k">human_handoff</span><span class="v">→ mode: live_agent</span></div>
+          <div class="cell"><span class="k">fallback</span><span class="v">menu + counter++ → 2nd in a row escalates</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Stream the reply back</span>
+          <span class="card-tag mono">hono/streaming</span>
+        </div>
+        <div class="card-body">
+          The finished string is split on spaces and written word-by-word with a 20ms delay — simulating a
+          token stream even though the text was fully known up front, in both modes.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="aside">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:8px;">Session state, this request</div>
+      <div class="kv"><span class="k">mode</span><span class="v">main → (handler's new mode)</span></div>
+      <div class="kv"><span class="k">recommendActivity</span><span class="v">set only inside recommend_flow</span></div>
+      <div class="kv"><span class="k">consecutiveFallbacks</span><span class="v">0, unless resetting from a streak</span></div>
+      <div class="kv"><span class="k">escalation rule</span><span class="v">2 fallbacks in a row → live_agent</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:8px;">What actually swaps</div>
+      <div class="card-body">
+        Only the classifier step changes — flip the toggle above to see it. Session, handlers, grounded
+        data, and the streaming shape are byte-for-byte identical either way.
+      </div>
+      <div class="swap">
+        <span class="pill pill-mock">mock: regex</span>
+        <span class="arrow">⇄</span>
+        <span class="pill pill-real">real: generateObject()</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    Gate: <code>isRealMode()</code> in <code>router.ts</code> — true only when <code>MOCK_LLM !== "true"</code>
+    <em>and</em> <code>OPENROUTER_API_KEY</code> is set.
+    <span class="mock-only i">Neither is true by default, so every request takes the mock path traced above.</span>
+    <span class="real-only i">Set both in <code>apps/server/.env</code> (see the project README) to switch every request to the path traced above.</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var buttons = document.querySelectorAll(".mode-toggle button");
+    buttons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var mode = btn.getAttribute("data-set");
+        root.setAttribute("data-mode", mode);
+        buttons.forEach(function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

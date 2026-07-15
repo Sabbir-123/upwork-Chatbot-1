@@ -1,0 +1,4 @@
+---
+# No handlers: `docker stack deploy` is declarative and idempotent — the deploy
+# task itself reconciles the service and performs the rolling update whenever the
+# stack file changes, so there is nothing to restart out-of-band.

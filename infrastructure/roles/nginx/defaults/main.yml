@@ -1,0 +1,3 @@
+---
+nginx_domain: "upwork-1407.codinism.com"
+nginx_upstream_port: "{{ northstar_backend_published_port | default(8000) }}"

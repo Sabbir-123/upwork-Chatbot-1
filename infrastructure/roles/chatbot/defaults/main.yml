@@ -1,0 +1,43 @@
+---
+northstar_backend_config_dir: "/opt/northstar-backend"
+northstar_backend_build_dir: "{{ northstar_backend_config_dir }}/src"
+northstar_backend_image: "northstar-chatbot:latest"
+northstar_backend_service: "northstar-backend"
+northstar_backend_stack: "northstar-backend"
+
+
+northstar_backend_container_port: 8787
+northstar_backend_published_port: 8000
+northstar_backend_replicas: 1
+
+
+northstar_backend_memory_limit: "256M"
+northstar_backend_memory_reservation: "64M"
+northstar_backend_restart_condition: "any"
+
+
+northstar_backend_update_parallelism: 1
+# Must be stop-first: with mode:host port publishing on a single-node swarm,
+# a replacement task can't bind the same host port while the old task still
+# holds it, so start-first deadlocks forever ("no suitable node (host-mode
+# port already in use on 1 node)"). stop-first accepts a brief gap on deploy.
+northstar_backend_update_order: "stop-first"
+northstar_backend_update_delay: "10s"
+northstar_backend_update_monitor: "30s"
+northstar_backend_update_failure_action: "rollback"
+
+
+northstar_backend_healthcheck_test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+northstar_backend_healthcheck_interval: "10s"
+northstar_backend_healthcheck_timeout: "3s"
+northstar_backend_healthcheck_retries: 3
+northstar_backend_healthcheck_start_period: "15s"
+
+northstar_backend_swarm_advertise_addr: "" # override to pin swarm to a specific interface; defaults to ansible_default_ipv4.address
+
+# Secrets — leave these empty here; set the real values in an ansible-vault
+# encrypted group_vars file (e.g. inventory/group_vars/chatbot/vault.yml) so
+# they never land in plaintext in the repo. Empty key = app runs rule-based
+# only (see apps/server/src/router.ts).
+northstar_backend_openrouter_api_key: ""
+northstar_backend_openrouter_model: "google/gemini-2.5-flash-lite"

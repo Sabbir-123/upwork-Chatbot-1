@@ -1,0 +1,87 @@
+---
+# --- Ensure the host is a single-node swarm manager -------------------------
+- name: Set swarm bind address
+  ansible.builtin.set_fact:
+    northstar_backend_swarm_addr: "{{ northstar_backend_swarm_advertise_addr | default(ansible_default_ipv4.address, true) }}"
+
+- name: Get current swarm state
+  ansible.builtin.command: docker info --format '{% raw %}{{ .Swarm.LocalNodeState }}{% endraw %}'
+  register: northstar_backend_swarm_state
+  changed_when: false
+
+- name: Initialize single-node swarm
+  ansible.builtin.command: >-
+    docker swarm init
+    --advertise-addr {{ northstar_backend_swarm_addr }}
+    --listen-addr {{ northstar_backend_swarm_addr }}
+  when: northstar_backend_swarm_state.stdout | trim != 'active'
+  changed_when: true
+
+# --- Build the app image locally on the node (no registry involved) --------
+# Single-node swarm: `docker stack deploy` only needs the image present in the
+# node's local image cache, so we sync the repo over and build it in place
+# instead of pushing to / pulling from a registry.
+- name: Create app config directory
+  ansible.builtin.file:
+    path: "{{ northstar_backend_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create build source directory
+  ansible.builtin.file:
+    path: "{{ northstar_backend_build_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure rsync is installed (required by the sync-and-build step)
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: Sync repo source for image build
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ northstar_backend_build_dir }}/"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=node_modules"
+      - "--exclude=**/node_modules"
+      - "--exclude=**/dist"
+      - "--exclude=**/.vite"
+      - "--exclude=infrastructure"
+
+- name: Build northstar-chatbot image
+  ansible.builtin.command:
+    cmd: docker build -t {{ northstar_backend_image }} .
+    chdir: "{{ northstar_backend_build_dir }}"
+  changed_when: true
+
+- name: Deploy .env file (secrets, e.g. OPENROUTER_API_KEY)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ northstar_backend_config_dir }}/.env"
+    mode: "0600"
+  no_log: true
+
+- name: Deploy docker stack file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ northstar_backend_config_dir }}/docker-compose.yml"
+    mode: "0644"
+
+# `docker stack deploy` is declarative + server-side idempotent: re-running
+# reconciles the service and issues a rolling (start-first) update whenever the
+# stack file changes; swarm no-ops if the spec is unchanged. Driven via the CLI
+# (not community.docker.docker_stack) to avoid the module's jsondiff/docker-py
+# host dependencies.
+- name: Deploy northstar-backend stack
+  ansible.builtin.command:
+    cmd: >-
+      docker stack deploy
+      --detach=true
+      --prune
+      --with-registry-auth
+      -c {{ northstar_backend_config_dir }}/docker-compose.yml
+      {{ northstar_backend_stack }}
+  changed_when: true

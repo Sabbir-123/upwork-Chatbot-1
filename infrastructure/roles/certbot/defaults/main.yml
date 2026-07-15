@@ -1,0 +1,3 @@
+---
+certbot_domain: "{{ nginx_domain }}"
+certbot_email: "" # set a real address to register with Let's Encrypt; empty falls back to --register-unsafely-without-email

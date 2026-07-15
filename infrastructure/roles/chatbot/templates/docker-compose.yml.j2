@@ -1,0 +1,48 @@
+# Managed by Ansible — do not edit by hand.
+# Deployed via `docker stack deploy` (Swarm), NOT `docker compose up`.
+# No top-level `name:` — the stack name comes from the deploy CLI arg, and the
+# v3 stack schema rejects it.
+
+services:
+  northstar-backend:
+    image: {{ northstar_backend_image }}
+    env_file:
+      - "{{ northstar_backend_config_dir }}/.env"
+    ports:
+      # Single-node swarm: publish directly on the host, bypassing the
+      # ingress routing mesh (which needs a working per-node iptables
+      # DNAT rule that isn't reliably present on every host).
+      - target: {{ northstar_backend_container_port }}
+        published: {{ northstar_backend_published_port }}
+        protocol: tcp
+        mode: host
+{% if northstar_backend_healthcheck_test != ["NONE"] %}
+    healthcheck:
+      test: {{ northstar_backend_healthcheck_test | to_json }}
+      interval: {{ northstar_backend_healthcheck_interval }}
+      timeout: {{ northstar_backend_healthcheck_timeout }}
+      retries: {{ northstar_backend_healthcheck_retries }}
+      start_period: {{ northstar_backend_healthcheck_start_period }}
+{% endif %}
+    # Container labels — cadvisor/Alloy key per-container metrics + logs off these.
+    labels:
+      app.service: "{{ northstar_backend_service }}"
+      app.stack: "{{ northstar_backend_stack }}"
+    deploy:
+      replicas: {{ northstar_backend_replicas }}
+      restart_policy:
+        condition: {{ northstar_backend_restart_condition }}
+      resources:
+        limits:
+          memory: {{ northstar_backend_memory_limit }}
+        reservations:
+          memory: {{ northstar_backend_memory_reservation }}
+      update_config:
+        parallelism: {{ northstar_backend_update_parallelism }}
+        order: {{ northstar_backend_update_order }}
+        delay: {{ northstar_backend_update_delay }}
+        monitor: {{ northstar_backend_update_monitor }}
+        failure_action: {{ northstar_backend_update_failure_action }}
+      rollback_config:
+        parallelism: {{ northstar_backend_update_parallelism }}
+        order: {{ northstar_backend_update_order }}

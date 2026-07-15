@@ -1,0 +1,12 @@
+---
+- name: Ensure systemd-timesyncd is enabled and running
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+
+- name: Verify clock is synchronised
+  ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+  register: ntp_sync
+  changed_when: false
+  failed_when: ntp_sync.stdout.strip() != 'yes'

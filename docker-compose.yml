@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: upwork-chatbot:latest
+    restart: unless-stopped
+    # Host <-> container port mapping only — the container's internal
+    # network IP is never exposed directly, only this published port.
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      PORT: 8787
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
+

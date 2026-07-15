@@ -1,0 +1,19 @@
+{
+  "name": "upwork-chatbot",
+  "private": true,
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,green \"pnpm --filter @upwork-chatbot/server dev\" \"pnpm --filter @upwork-chatbot/web dev\"",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @upwork-chatbot/server test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@11.13.0"
+}

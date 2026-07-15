@@ -1,0 +1,26 @@
+---
+- name: Install certbot + nginx plugin
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+# certbot's nginx plugin edits the vhost in place to add the 443/SSL server
+# block and the 80 -> 443 redirect, then reloads nginx itself. Deliberately
+# unguarded (no `creates:`) — the nginx role re-templates the vhost from
+# scratch (HTTP-only) on every run, so this must re-run every time too to
+# restore the SSL block. certbot itself no-ops the actual cert issuance when
+# not yet due for renewal, so this is cheap and safe to repeat.
+- name: Obtain/install TLS certificate (certbot nginx plugin)
+  ansible.builtin.command:
+    cmd: >-
+      certbot --nginx
+      -d {{ certbot_domain }}
+      --non-interactive --agree-tos --redirect
+      {{ (certbot_email | length > 0) | ternary('-m ' ~ certbot_email ~ ' --no-eff-email', '--register-unsafely-without-email') }}
+  changed_when: true
+
+# The certbot package installs its own systemd timer (certbot.timer) that
+# handles renewal — nothing further to schedule here.

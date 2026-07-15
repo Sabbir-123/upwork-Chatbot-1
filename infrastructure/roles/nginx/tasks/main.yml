@@ -1,0 +1,35 @@
+---
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+- name: Enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/default
+    - /etc/nginx/sites-available/default
+  notify: reload nginx
+
+- name: Deploy reverse-proxy site config
+  ansible.builtin.template:
+    src: site.conf.j2
+    dest: "/etc/nginx/sites-available/{{ nginx_domain }}.conf"
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable reverse-proxy site
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ nginx_domain }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ nginx_domain }}.conf"
+    state: link
+  notify: reload nginx

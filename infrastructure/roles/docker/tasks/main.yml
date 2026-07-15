@@ -1,0 +1,65 @@
+---
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+
+- name: Ensure apt keyrings dir exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Install Docker apt signing key (ASCII-armored)
+  ansible.builtin.get_url:
+    url: "https://download.docker.com/linux/ubuntu/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+  check_mode: false
+
+- name: Set permissions on Docker key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Add Docker apt repository (modern deb822 format)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.sources
+    content: |
+      Types: deb
+      URIs: https://download.docker.com/linux/ubuntu
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: stable
+      Architectures: {{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+      Signed-By: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  notify: Update apt cache
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false
+
+- name: Install Docker engine + plugins
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+
+- name: Enable and start docker
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add operator users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users | default([]) }}"

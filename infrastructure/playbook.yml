@@ -1,0 +1,11 @@
+---
+- name: Provision and deploy the North Star support bot
+  hosts: chatbot
+  become: true
+  roles:
+    - system_updates
+    - ntp
+    - docker
+    - chatbot
+    - nginx
+    - certbot
