@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+**/.vite
+**/.vite-temp
+.git
+.github
+.vscode
+.claude
+*.log
+.env
+.env.local
+.env.*.local
+docs
+README.md
+Dockerfile
+docker-compose*.yml
+.dockerignore
